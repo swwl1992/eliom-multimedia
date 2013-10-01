@@ -38,15 +38,7 @@ let video_player =
 	~a:[a_controls (`Controls); a_id "myvideo"]
 	[pcdata "Your browser does not support audio element"]
 
-let subtitle_editor =
-	div [
-		button_add;
-		button_save;
-		button_clear;
-		subtitle_table;
-		start_time_ph;
-		end_time_ph;
-		]
+let subtitle_editor = div []
 
 {client{
 let init_client _ =
@@ -55,6 +47,9 @@ let init_client _ =
 	let div_elm = To_dom.of_div %subtitle_editor in
 	let start_ph_elm = To_dom.of_div %start_time_ph in
 	let end_ph_elm = To_dom.of_div %end_time_ph in
+	let button_add = To_dom.of_button %button_add in
+	let button_save = To_dom.of_button %button_save in
+	let button_clear = To_dom.of_button %button_clear in
 	(* create a empty object of popcorn *)
 	let pop = popcorn(Js.string "#myvideo") in
 	(* make a reference of it - changed to variable *)
@@ -63,7 +58,13 @@ let init_client _ =
 	let textbox = Dom_html.createTextarea d in
 	table_elm##border <- Js.string "1";
 	textbox##cols <- 60;
+	Dom.appendChild div_elm start_ph_elm;
+	Dom.appendChild div_elm end_ph_elm;
 	Dom.appendChild div_elm textbox;
+	Dom.appendChild div_elm button_add;
+	Dom.appendChild div_elm table_elm;
+	Dom.appendChild div_elm button_save;
+	Dom.appendChild div_elm button_clear;
 
 	let add_subtitle_row () =
 		let row_count = table_elm##rows##length in
@@ -106,10 +107,12 @@ let init_client _ =
 		let start_time = start_cell##innerHTML in
 		let end_time = end_cell##innerHTML in
 		let text = text_cell##innerHTML in
+		(* for debug purpose
 		Firebug.console##log_2(Js.string "[row]:", Js.string (string_of_int row_no));
 		Firebug.console##log_2(Js.string "start:", start_time);
 		Firebug.console##log_2(Js.string "end:", end_time);
 		Firebug.console##log_2(Js.string "text:", text);
+		*)
 		insert_subtitle start_time end_time text;
 		build_subtitles table_elm (row_no + 1)
 		in
@@ -135,17 +138,19 @@ let init_client _ =
 		(fun () ->
 			let open Lwt_js_events in
 				Lwt.pick[
-					clicks (To_dom.of_element %button_add)
+					clicks (button_add)
 					(fun _ _ -> add_subtitle_row (); Lwt.return ());
-					clicks (To_dom.of_element %button_save)
+					clicks (button_save)
 					(fun _ _ -> save_subtitles (); Lwt.return ());
-					clicks (To_dom.of_element %button_clear)
+					clicks (button_clear)
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
 		]);
 
 	(* continuously update the time and subtitle *)
 	let rec update_end_ph old_time n =
 		let curr_time = pop##currentTime_get() in
+		if start_ph_elm##innerHTML > curr_time then
+		start_ph_elm##innerHTML <- curr_time;
 		let n =
 			if curr_time <> old_time then begin
 				begin try
