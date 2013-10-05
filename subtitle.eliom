@@ -4,21 +4,19 @@
   open Html5
   open Html5.D
   open Lwt
-
-  (* media library and popcorn.js API *)
-  open Popcorn
+  open Popcorn (* media library and popcorn.js API *)
 }}
 
 module Subtitle_app =
-  Eliom_registration.App (
-    struct
-      let application_name = "subtitle"
-    end)
+	Eliom_registration.App (
+	struct
+		let application_name = "subtitle"
+	end)
 
 let main_service =
-  Eliom_service.service ~path:[] ~get_params:Eliom_parameter.unit ()
+	Eliom_service.service ~path:[] ~get_params:Eliom_parameter.unit ()
 
-let button_add =  button ~button_type:`Button [pcdata "Add a Subtitle"]
+let button_add =  button ~button_type:`Button [pcdata "Insert a Subtitle"]
 let button_save =  button ~button_type:`Button [pcdata "Save"]
 let button_clear =  button ~button_type:`Button [pcdata "Clear All"]
 
@@ -28,8 +26,8 @@ let t_row = tr [
 	td [pcdata "Text"]]
 let subtitle_table = tablex [tbody [t_row]]
 
-let start_time_ph = div [pcdata "0.000000"]
-let end_time_ph = div [pcdata "0.000000"]
+let start_time_ph = div [pcdata "0.00"]
+let end_time_ph = div [pcdata "0.00"]
 
 let video_player =
 	video	
@@ -42,6 +40,7 @@ let subtitle_editor = div []
 
 {client{
 let init_client _ =
+	let end_of_sub = ref (Js.string "0.00") in
 	let d = Dom_html.document in
 	let table_elm = To_dom.of_table %subtitle_table in
 	let div_elm = To_dom.of_div %subtitle_editor in
@@ -76,7 +75,9 @@ let init_client _ =
 		end_cell##innerHTML <- end_ph_elm##innerHTML;
 		text_cell##innerHTML <- textbox##value;
 		textbox##value <- Js.string "";
-		start_ph_elm##innerHTML <- end_ph_elm##innerHTML in
+		start_ph_elm##innerHTML <- end_ph_elm##innerHTML;
+		end_of_sub := end_ph_elm##innerHTML;
+		in
 	
 	let insert_subtitle start_ end_ text =
 		let st = empty_subtitle () in
@@ -91,7 +92,7 @@ let init_client _ =
 
 	let rec build_subtitles table_elm row_no =
 		let rows_length = table_elm##rows##length in
-		Firebug.console##log_2(Js.string "row count:", Js.string (string_of_int rows_length));
+		(* Firebug.console##log_2(Js.string "row count:", Js.string (string_of_int rows_length)); *)
 		(* cannot find a subtitle -> return empty string *)
 		if rows_length == row_no then
 			()
@@ -128,8 +129,8 @@ let init_client _ =
 
 	let clear_all_subtitles () =
 		let rows_length = table_elm##rows##length in
-		start_ph_elm##innerHTML <- Js.string "0.000000";
-		end_ph_elm##innerHTML <- Js.string "0.000000";
+		start_ph_elm##innerHTML <- Js.string "0.00";
+		end_ph_elm##innerHTML <- Js.string "0.00";
 		clear_rows rows_length;
 		refresh_subtitles ()
 		in
@@ -146,15 +147,60 @@ let init_client _ =
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
 		]);
 
+	let rec update_phs table_elm row_no curr_time =
+		if (!end_of_sub) <= curr_time then
+		begin
+			start_ph_elm##innerHTML <- (!end_of_sub);
+			end_ph_elm##innerHTML <- curr_time;
+			textbox##value <- Js.string "";
+		end
+		else
+		let rows_length = table_elm##rows##length in
+		Firebug.console##log_2(Js.string "row count:", Js.string (string_of_int rows_length));
+		(* cannot find a subtitle -> return empty string *)
+		if rows_length == row_no then
+			()
+		else
+		let row = Js.Opt.get(table_elm##rows##item(row_no))
+			(fun _ -> assert false) in
+		let start_cell = Js.Opt.get(row##cells##item(0))
+			(fun _ -> assert false) in
+		let end_cell = Js.Opt.get(row##cells##item(1))
+			(fun _ -> assert false) in
+		let text_cell = Js.Opt.get(row##cells##item(2))
+			(fun _ -> assert false) in
+		let start_time = start_cell##innerHTML in
+		let end_time = end_cell##innerHTML in
+		let text = text_cell##innerHTML in
+		(* for debug purpose
+		Firebug.console##log_2(Js.string "[row]:", Js.string (string_of_int row_no));
+		Firebug.console##log_2(Js.string "start:", start_time);
+		Firebug.console##log_2(Js.string "end:", end_time);
+		Firebug.console##log_2(Js.string "text:", text);
+		*)
+		if curr_time >= start_time && curr_time <= end_time then
+		begin
+			start_ph_elm##innerHTML <- start_time;
+			end_ph_elm##innerHTML <- end_time;
+			textbox##value <- text;
+			()
+			(*
+			Firebug.console##log_2(Js.string "start:", start_time);
+			Firebug.console##log_2(Js.string "end:", end_time);
+			Firebug.console##log_2(Js.string "text:", text);
+			*)
+		end
+		else
+			update_phs table_elm (row_no + 1) curr_time
+		in
+
 	(* continuously update the time and subtitle *)
 	let rec update_end_ph old_time n =
 		let curr_time = pop##currentTime_get() in
-		if start_ph_elm##innerHTML > curr_time then
-		start_ph_elm##innerHTML <- curr_time;
 		let n =
 			if curr_time <> old_time then begin
 				begin try
-					end_ph_elm##innerHTML <- curr_time;
+					update_phs table_elm 1 curr_time;
 				with _ -> () end;
 				20
 			end else
@@ -169,7 +215,9 @@ let () =
   Subtitle_app.register
     ~service:main_service
     (fun () () ->
-	ignore{unit{ init_client () }};
+	ignore{unit{
+		init_client ();
+	}};
       Lwt.return
         (Eliom_tools.F.html
            ~title:"Demo | Subtitle Editor"
