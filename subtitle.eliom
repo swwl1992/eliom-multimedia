@@ -65,18 +65,42 @@ let init_client _ =
 	Dom.appendChild div_elm button_save;
 	Dom.appendChild div_elm button_clear;
 
-	let add_subtitle_row () =
+	let rec add_subtitle_row row_no =
 		let row_count = table_elm##rows##length in
-		let row = table_elm##insertRow(row_count) in
-		let start_cell = row##insertCell(0) in
-		let end_cell = row##insertCell(1) in
-		let text_cell = row##insertCell(2) in
-		start_cell##innerHTML <- start_ph_elm##innerHTML;
-		end_cell##innerHTML <- end_ph_elm##innerHTML;
-		text_cell##innerHTML <- textbox##value;
-		textbox##value <- Js.string "";
-		start_ph_elm##innerHTML <- end_ph_elm##innerHTML;
-		end_of_sub := end_ph_elm##innerHTML;
+		if row_no == row_count then
+		begin
+			let new_row = table_elm##insertRow(row_count) in
+			let start_cell = new_row##insertCell(0) in
+			let end_cell = new_row##insertCell(1) in
+			let text_cell = new_row##insertCell(2) in
+			end_of_sub := end_ph_elm##innerHTML;
+			start_cell##innerHTML <- start_ph_elm##innerHTML;
+			end_cell##innerHTML <- end_ph_elm##innerHTML;
+			text_cell##innerHTML <- textbox##value;
+			start_ph_elm##innerHTML <- end_ph_elm##innerHTML;
+			()
+		end
+		else
+		begin
+			let row = Js.Opt.get(table_elm##rows##item(row_no))
+				(fun _ -> assert false) in
+			let start_cell = Js.Opt.get(row##cells##item(0))
+				(fun _ -> assert false) in
+			let end_cell = Js.Opt.get(row##cells##item(1))
+				(fun _ -> assert false) in
+			let text_cell = Js.Opt.get(row##cells##item(2))
+				(fun _ -> assert false) in
+			let start_time = start_cell##innerHTML in
+			let end_time = end_cell##innerHTML in
+			if start_time == start_ph_elm##innerHTML &&
+				end_time == end_ph_elm##innerHTML then
+			begin
+				text_cell##innerHTML <- textbox##value;
+				()
+			end
+			else
+				add_subtitle_row (row_no + 1)
+		end
 		in
 	
 	let insert_subtitle start_ end_ text =
@@ -140,13 +164,14 @@ let init_client _ =
 			let open Lwt_js_events in
 				Lwt.pick[
 					clicks (button_add)
-					(fun _ _ -> add_subtitle_row (); Lwt.return ());
+					(fun _ _ -> add_subtitle_row 1; Lwt.return ());
 					clicks (button_save)
 					(fun _ _ -> save_subtitles (); Lwt.return ());
 					clicks (button_clear)
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
 		]);
 
+	(* update placeholders: start_time, end_time & textbox *)
 	let rec update_phs table_elm row_no curr_time =
 		if (!end_of_sub) <= curr_time then
 		begin
@@ -196,7 +221,7 @@ let init_client _ =
 
 	(* continuously update the time and subtitle *)
 	let rec update_end_ph old_time n =
-		let curr_time = pop##currentTime_get() in
+		let curr_time = (!pop_ref)##currentTime_get() in
 		let n =
 			if curr_time <> old_time then begin
 				begin try
@@ -215,9 +240,7 @@ let () =
   Subtitle_app.register
     ~service:main_service
     (fun () () ->
-	ignore{unit{
-		init_client ();
-	}};
+	ignore{unit{ init_client () }};
       Lwt.return
         (Eliom_tools.F.html
            ~title:"Demo | Subtitle Editor"
