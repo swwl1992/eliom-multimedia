@@ -65,6 +65,19 @@ let init_client _ =
 	Dom.appendChild div_elm button_save;
 	Dom.appendChild div_elm button_clear;
 
+	let fix_float_string_precision js_string precision =
+		let in_flt = float_of_string (Js.to_string js_string) in
+		let in_num = Js.number_of_float in_flt in
+		let out_flt = in_num##toFixed(precision) in
+		out_flt
+		in
+
+	let comp_float_string_lessequal str1 str2 =
+		let num1 = float_of_string(Js.to_string str1) in
+		let num2 = float_of_string(Js.to_string str2) in
+		num1 <= num2
+		in
+
 	let rec add_subtitle_row row_no =
 		let row_count = table_elm##rows##length in
 		if row_no == row_count then
@@ -116,8 +129,6 @@ let init_client _ =
 
 	let rec build_subtitles table_elm row_no =
 		let rows_length = table_elm##rows##length in
-		(* Firebug.console##log_2(Js.string "row count:", Js.string (string_of_int rows_length)); *)
-		(* cannot find a subtitle -> return empty string *)
 		if rows_length == row_no then
 			()
 		else
@@ -173,16 +184,19 @@ let init_client _ =
 
 	(* update placeholders: start_time, end_time & textbox *)
 	let rec update_phs table_elm row_no curr_time =
-		if (!end_of_sub) <= curr_time then
+		if comp_float_string_lessequal !end_of_sub curr_time then
 		begin
 			start_ph_elm##innerHTML <- (!end_of_sub);
 			end_ph_elm##innerHTML <- curr_time;
 			textbox##value <- Js.string "";
+			(*
+			Firebug.console##log_2(Js.string "curr:", curr_time);
+			Firebug.console##log_2(Js.string "end of sub:", !end_of_sub);
+			*)
+			()
 		end
 		else
 		let rows_length = table_elm##rows##length in
-		Firebug.console##log_2(Js.string "row count:", Js.string (string_of_int rows_length));
-		(* cannot find a subtitle -> return empty string *)
 		if rows_length == row_no then
 			()
 		else
@@ -203,12 +217,12 @@ let init_client _ =
 		Firebug.console##log_2(Js.string "end:", end_time);
 		Firebug.console##log_2(Js.string "text:", text);
 		*)
-		if curr_time >= start_time && curr_time <= end_time then
+		if comp_float_string_lessequal start_time curr_time && 
+			comp_float_string_lessequal curr_time end_time then
 		begin
 			start_ph_elm##innerHTML <- start_time;
 			end_ph_elm##innerHTML <- end_time;
 			textbox##value <- text;
-			()
 			(*
 			Firebug.console##log_2(Js.string "start:", start_time);
 			Firebug.console##log_2(Js.string "end:", end_time);
@@ -221,10 +235,14 @@ let init_client _ =
 
 	(* continuously update the time and subtitle *)
 	let rec update_end_ph old_time n =
-		let curr_time = (!pop_ref)##currentTime_get() in
+		let origin_time = (!pop_ref)##currentTime_get() in
+		let curr_time = fix_float_string_precision origin_time 2 in
 		let n =
 			if curr_time <> old_time then begin
 				begin try
+					(*
+					Firebug.console##log_2(Js.string "curr:", curr_time);
+					*)
 					update_phs table_elm 1 curr_time;
 				with _ -> () end;
 				20
@@ -233,7 +251,7 @@ let init_client _ =
 		in
 		Lwt_js.sleep (if n = 0 then 0.5 else 0.25) >>=
 		fun () -> update_end_ph curr_time n in
-	ignore (update_end_ph (Js.string "0.000") 0)
+	ignore (update_end_ph (Js.string "0.00") 0)
 }}
 
 let () =
