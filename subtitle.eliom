@@ -216,6 +216,8 @@ let init_client _ =
 		let rows_length = table_elm##rows##length in
 		start_ph_elm##innerHTML <- Js.string "0.00";
 		end_ph_elm##innerHTML <- Js.string "0.00";
+		textbox##value <- Js.string "";
+		end_of_sub := Js.string "0.00";
 		clear_rows rows_length;
 		refresh_subtitles ()
 		in
