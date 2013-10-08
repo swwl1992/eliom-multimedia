@@ -49,17 +49,18 @@ let video_player =
 	[pcdata "your browser does not support video element"]
 
 let video_controller = div [
-	 p [pcdata "Playback"];
+	 label [pcdata "Playback"];
 	 button_play;
 	 button_pause;
 	 button_step_forward;
 	 button_step_backward;
-	 p [pcdata "Frame size"];
+	 br ();
+	 label [pcdata "Frame size"];
 	 button_big;
 	 button_medium;
 	 button_small;
-	 button_fullscr;
-	 p [pcdata "Overlay graphics"];
+	 br ();
+	 label [pcdata "Overlay graphics"];
 	 button_toggle_graph;
 	]
 
@@ -94,7 +95,6 @@ let init_client _ =
 	let button_small = To_dom.of_button %button_small in
 	let button_step_forward = To_dom.of_button %button_step_forward in
 	let button_step_backward = To_dom.of_button %button_step_backward in
-	let button_fullscr = To_dom.of_button %button_fullscr in
 	let button_toggle_graph = To_dom.of_button %button_toggle_graph in
 	(* create a empty object of popcorn *)
 	let pop = popcorn(Js.string "#myvideo") in
