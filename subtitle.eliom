@@ -16,6 +16,16 @@ module Subtitle_app =
 let main_service =
 	Eliom_service.service ~path:[] ~get_params:Eliom_parameter.unit ()
 
+let button_play =  button ~button_type:`Button [pcdata "Play"]
+let button_pause =  button ~button_type:`Button [pcdata "Pause"]
+let button_big =  button ~button_type:`Button [pcdata "Big"]
+let button_medium =  button ~button_type:`Button [pcdata "Medium"]
+let button_small =  button ~button_type:`Button [pcdata "Small"]
+let button_step_forward =  button ~button_type:`Button [pcdata "Step forward"]
+let button_step_backward =  button ~button_type:`Button [pcdata "Step backward"]
+let button_fullscr =  button ~button_type:`Button [pcdata "Fullscreen"]
+let button_toggle_graph =  button ~button_type:`Button [pcdata "Graphics"]
+
 let button_add =  button ~button_type:`Button [pcdata "Insert a Subtitle"]
 let button_save =  button ~button_type:`Button [pcdata "Save"]
 let button_clear =  button ~button_type:`Button [pcdata "Clear All"]
@@ -26,44 +36,84 @@ let t_row = tr [
 	td [pcdata "Text"]]
 let subtitle_table = tablex [tbody [t_row]]
 
+let textarea = raw_textarea ~a:[a_cols 60] ~name:"subline" ()
+
 let start_time_ph = div [pcdata "0.00"]
 let end_time_ph = div [pcdata "0.00"]
 
 let video_player =
-	video	
+	video
 	~srcs:(make_uri (Eliom_service.static_dir ())
 		["oceans-clip.webm"],[])
 	~a:[a_controls (`Controls); a_id "myvideo"]
-	[pcdata "Your browser does not support audio element"]
+	[pcdata "your browser does not support video element"]
 
-let subtitle_editor = div []
+let video_controller = div [
+	 p [pcdata "Playback"];
+	 button_play;
+	 button_pause;
+	 button_step_forward;
+	 button_step_backward;
+	 p [pcdata "Frame size"];
+	 button_big;
+	 button_medium;
+	 button_small;
+	 button_fullscr;
+	 p [pcdata "Overlay graphics"];
+	 button_toggle_graph;
+	]
+
+let subtitle_editor = div [
+	start_time_ph;
+	end_time_ph;
+	textarea;
+	br ();
+	button_add;
+	subtitle_table;
+	button_save;
+	button_clear;
+	]
 
 {client{
 let init_client _ =
-	let end_of_sub = ref (Js.string "0.00") in
-	let d = Dom_html.document in
+	(* DOM elements *)
+	(*
+	let video_elm = To_dom.of_video %video_player in
+	*)
 	let table_elm = To_dom.of_table %subtitle_table in
-	let div_elm = To_dom.of_div %subtitle_editor in
 	let start_ph_elm = To_dom.of_div %start_time_ph in
 	let end_ph_elm = To_dom.of_div %end_time_ph in
+	let textbox = To_dom.of_textarea %textarea in
 	let button_add = To_dom.of_button %button_add in
 	let button_save = To_dom.of_button %button_save in
 	let button_clear = To_dom.of_button %button_clear in
+	let button_play = To_dom.of_button %button_play in
+	let button_pause = To_dom.of_button %button_pause in
+	let button_big = To_dom.of_button %button_big in
+	let button_medium = To_dom.of_button %button_medium in
+	let button_small = To_dom.of_button %button_small in
+	let button_step_forward = To_dom.of_button %button_step_forward in
+	let button_step_backward = To_dom.of_button %button_step_backward in
+	let button_fullscr = To_dom.of_button %button_fullscr in
+	let button_toggle_graph = To_dom.of_button %button_toggle_graph in
 	(* create a empty object of popcorn *)
 	let pop = popcorn(Js.string "#myvideo") in
 	(* make a reference of it - changed to variable *)
 	let pop_ref = ref pop in
+	let end_of_sub = ref (Js.string "0.00") in
 
-	let textbox = Dom_html.createTextarea d in
 	table_elm##border <- Js.string "1";
-	textbox##cols <- 60;
-	Dom.appendChild div_elm start_ph_elm;
-	Dom.appendChild div_elm end_ph_elm;
-	Dom.appendChild div_elm textbox;
-	Dom.appendChild div_elm button_add;
-	Dom.appendChild div_elm table_elm;
-	Dom.appendChild div_elm button_save;
-	Dom.appendChild div_elm button_clear;
+
+	(*video controller functions*)
+	let play_video _ =
+		(!pop_ref)##play()
+	in
+
+	let pause_video _ =
+		(!pop_ref)##pause()
+	in
+
+	(* subtitle edition functions *)
 
 	let fix_float_string_precision js_string precision =
 		let in_flt = float_of_string (Js.to_string js_string) in
@@ -174,11 +224,15 @@ let init_client _ =
 		(fun () ->
 			let open Lwt_js_events in
 				Lwt.pick[
-					clicks (button_add)
+					clicks button_play
+					(fun _ _ -> play_video (); Lwt.return ());
+					clicks button_pause
+					(fun _ _ -> pause_video (); Lwt.return ());
+					clicks button_add
 					(fun _ _ -> add_subtitle_row 1; Lwt.return ());
-					clicks (button_save)
+					clicks button_save
 					(fun _ _ -> save_subtitles (); Lwt.return ());
-					clicks (button_clear)
+					clicks button_clear
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
 		]);
 
@@ -240,9 +294,6 @@ let init_client _ =
 		let n =
 			if curr_time <> old_time then begin
 				begin try
-					(*
-					Firebug.console##log_2(Js.string "curr:", curr_time);
-					*)
 					update_phs table_elm 1 curr_time;
 				with _ -> () end;
 				20
@@ -261,11 +312,12 @@ let () =
 	ignore{unit{ init_client () }};
       Lwt.return
         (Eliom_tools.F.html
-           ~title:"Demo | Subtitle Editor"
+           ~title:"Demo | Eliom multimedia"
            ~css:[["css";"subtitle.css"]]
            ~js:[["js";"popcorn-complete.min.js"]]
            Html5.F.(body [
-             h2 [pcdata "HTML5 Video Subtitle Editor"];
+             h2 [pcdata "Eliom multimedia demo"];
+			 video_controller;
 			 video_player;
 			 subtitle_editor;
            ])))

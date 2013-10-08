@@ -76,6 +76,8 @@ let empty_subtitle () : subtitle t =
 
 class type popcornElement = object
   (* media methods *)
+  method play : unit meth
+  method pause : unit meth
   method currentTime_set : js_string t -> unit meth
   method currentTime_get : js_string t meth
   method destroy : unit meth
