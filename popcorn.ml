@@ -1,4 +1,5 @@
 open Js
+open Eliom_content
 
 class type mediaElement = object
   inherit Dom_html.element
@@ -80,6 +81,7 @@ class type popcornElement = object
   method pause : unit meth
   method currentTime_set : js_string t -> unit meth
   method currentTime_get : js_string t meth
+  method duration : js_string t meth
   method destroy : unit meth
   (* plug-ins*)
   method footnote : footnote t -> unit meth
