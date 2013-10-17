@@ -18,6 +18,7 @@ JS_OF_ELIOM       := js_of_eliom
 ELIOMDEP          := eliomdep
 OCSIGENSERVER     := ocsigenserver
 OCSIGENSERVER.OPT := ocsigenserver.opt
+OCLOSURE_REQ	  := oclosure_req
 
 ## Where to put intermediate object files.
 ## - ELIOM_{SERVER,CLIENT}_DIR must be distinct
@@ -55,6 +56,8 @@ DIST_FILES = $(ELIOMSTATICDIR)/$(PROJECT_NAME).js $(LIBDIR)/$(PROJECT_NAME).cma
 
 .PHONY: test.byte test.opt
 test.byte: $(addprefix $(TEST_PREFIX),$(ETCDIR)/$(PROJECT_NAME)-test.conf $(DIST_DIRS) $(DIST_FILES))
+	# generate oclosure related js file
+	./${OCLOSURE_REQ} $(TEST_PREFIX)$(ELIOMSTATICDIR)/$(PROJECT_NAME).js
 	$(OCSIGENSERVER) $(RUN_DEBUG) -c $<
 test.opt: $(addprefix $(TEST_PREFIX),$(ETCDIR)/$(PROJECT_NAME)-test.conf $(DIST_DIRS) $(patsubst %.cma,%.cmxs, $(DIST_FILES)))
 	$(OCSIGENSERVER.OPT) $(RUN_DEBUG) -c $<
@@ -184,7 +187,6 @@ ${ELIOM_SERVER_DIR}/%.cmx: %.ml
 ${ELIOM_SERVER_DIR}/%.cmx: %.eliom
 	${ELIOMOPT} -c ${SERVER_INC} $(GENERATE_DEBUG) $<
 
-
 ##----------------------------------------------------------------------
 ## Client side compilation
 
@@ -199,6 +201,7 @@ $(TEST_PREFIX)$(ELIOMSTATICDIR)/$(PROJECT_NAME).js: $(call objs,$(ELIOM_CLIENT_D
 	${JS_OF_ELIOM} -o $@ $(GENERATE_DEBUG) $(CLIENT_INC) $(DEBUG_JS) \
           $(call depsort,$(ELIOM_CLIENT_DIR),cmo,-client,$(CLIENT_INC),$(CLIENT_FILES))
 
+
 ${ELIOM_CLIENT_DIR}/%.cmi: %.mli
 	${JS_OF_ELIOM} -c ${CLIENT_INC} $(GENERATE_DEBUG) $<
 
@@ -209,6 +212,7 @@ ${ELIOM_CLIENT_DIR}/%.cmo: %.ml
 
 ${ELIOM_CLIENT_DIR}/%.cmi: %.eliomi
 	${JS_OF_ELIOM} -c ${CLIENT_INC} $(GENERATE_DEBUG) $<
+
 
 ##----------------------------------------------------------------------
 ## Dependencies
