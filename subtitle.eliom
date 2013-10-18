@@ -55,6 +55,7 @@ let init_client _ =
 		slider##setValue(0.0);
 		slider##setMoveToPointEnabled(Js._true);
 		slider##setStep(Js.some 0.1);
+		slider##setUnitIncrement(0.05);
 		slider##renderBefore(elm);
 		slider
 	in
@@ -70,6 +71,10 @@ let init_client _ =
 	(* common functions *)
 	let js_string_of_js_float js_float =
 		Js.string (string_of_float (Js.to_float js_float))
+	in
+
+	let js_float_of_js_string js_string =
+		Js.float (float_of_string (Js.to_string js_string))
 	in
 
 	let fix_float_string_precision js_string precision =
@@ -357,6 +362,7 @@ let init_client _ =
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
 		]);
 
+
 	(* update placeholders: start_time, end_time & textbox *)
 	(* according to currentTime of video *)
 	let rec update_phs_by_time row_no curr_time =
@@ -364,6 +370,8 @@ let init_client _ =
 		begin
 			start_ph_elm##value <- (!end_of_sub);
 			end_ph_elm##value <- curr_time;
+			start_slider##setValue(float_of_string (Js.to_string !end_of_sub));
+			end_slider##setValue(float_of_string (Js.to_string curr_time));
 			textbox##value <- Js.string "";
 			(*
 			Firebug.console##log_2(Js.string "curr:", curr_time);
@@ -376,6 +384,7 @@ let init_client _ =
 		if rows_length == row_no then (* no subtitle found *)
 		begin
 			end_ph_elm##value <- curr_time;
+			end_slider##setValue(float_of_string (Js.to_string curr_time));
 			textbox##value <- Js.string "";
 			()
 		end
@@ -402,6 +411,8 @@ let init_client _ =
 		begin
 			start_ph_elm##value <- start_time;
 			end_ph_elm##value <- end_time;
+			start_slider##setValue(float_of_string (Js.to_string start_time));
+			end_slider##setValue(float_of_string (Js.to_string end_time));
 			textbox##value <- text;
 			(*
 			Firebug.console##log_2(Js.string "start:", start_time);
@@ -415,10 +426,11 @@ let init_client _ =
 
 	(* continuously update the time and subtitle *)
 	(* ss = start_slider; es = end_slider *)
-	let rec update_phs old_time old_ss_val n =
+	let rec update_phs old_time old_ss_val old_es_val n =
 		let origin_time = (!pop_ref)##currentTime_get() in
 		let curr_time = fix_float_string_precision origin_time 2 in
 		let ss_val = start_slider##getValue() in 
+		let es_val = end_slider##getValue() in 
 		let is_playing = not (Js.to_bool (!pop_ref)##paused()) in
 		let n =
 			if is_playing then
@@ -436,15 +448,24 @@ let init_client _ =
 				start_ph_elm##value <- rounded_ss_val_string;
 				20
 			end
+			else if old_es_val <> es_val then
+			begin
+				let es_val_string =
+					js_string_of_js_float end_slider##getValue() in
+				let rounded_es_val_string = 
+					fix_float_string_precision es_val_string 2 in
+				(!pop_ref)##currentTime_set(rounded_es_val_string);
+				end_ph_elm##value <- rounded_es_val_string;
+				20
+			end
 			else
 			begin
-				update_phs_by_time 1 curr_time;
 				max 0 (n - 1)
 			end
 		in
 		Lwt_js.sleep (if n = 0 then 0.5 else 0.25) >>=
-		fun () -> update_phs curr_time ss_val n in
-	ignore (update_phs (Js.string "0.00") (Js.float 0.) 0)
+		fun () -> update_phs curr_time ss_val es_val n in
+	ignore (update_phs (Js.string "0.00") (Js.float 0.) (Js.float 0.) 0)
 }}
 
 let () =
