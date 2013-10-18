@@ -56,7 +56,6 @@ DIST_FILES = $(ELIOMSTATICDIR)/$(PROJECT_NAME).js $(LIBDIR)/$(PROJECT_NAME).cma
 
 .PHONY: test.byte test.opt
 test.byte: $(addprefix $(TEST_PREFIX),$(ETCDIR)/$(PROJECT_NAME)-test.conf $(DIST_DIRS) $(DIST_FILES))
-	# generate oclosure related js file
 	./${OCLOSURE_REQ} $(TEST_PREFIX)$(ELIOMSTATICDIR)/$(PROJECT_NAME).js
 	$(OCSIGENSERVER) $(RUN_DEBUG) -c $<
 test.opt: $(addprefix $(TEST_PREFIX),$(ETCDIR)/$(PROJECT_NAME)-test.conf $(DIST_DIRS) $(patsubst %.cma,%.cmxs, $(DIST_FILES)))

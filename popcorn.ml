@@ -79,6 +79,7 @@ class type popcornElement = object
   (* media methods *)
   method play : unit meth
   method pause : unit meth
+  method paused : bool t meth
   method currentTime_set : js_string t -> unit meth
   method currentTime_get : js_string t meth
   method duration : js_string t meth

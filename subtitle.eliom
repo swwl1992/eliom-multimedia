@@ -7,6 +7,8 @@
   open Popcorn (* media library and popcorn.js API *)
 }}
 
+open Server
+
 module Subtitle_app =
 	Eliom_registration.App (
 	struct
@@ -16,68 +18,8 @@ module Subtitle_app =
 let main_service =
 	Eliom_service.service ~path:[] ~get_params:Eliom_parameter.unit ()
 
-let button_play =  button ~button_type:`Button [pcdata "Play"]
-let button_pause =  button ~button_type:`Button [pcdata "Pause"]
-let button_big =  button ~button_type:`Button [pcdata "Big"]
-let button_medium =  button ~button_type:`Button [pcdata "Medium"]
-let button_small =  button ~button_type:`Button [pcdata "Small"]
-let button_step_forward =  button ~button_type:`Button [pcdata "Step forward"]
-let button_step_backward =  button ~button_type:`Button [pcdata "Step backward"]
-let button_fullscr =  button ~button_type:`Button [pcdata "Fullscreen"]
-let button_toggle_graph =  button ~button_type:`Button [pcdata "Graphics"]
-
-let button_add =  button ~button_type:`Button [pcdata "Insert a Subtitle"]
-let button_save =  button ~button_type:`Button [pcdata "Save"]
-let button_clear =  button ~button_type:`Button [pcdata "Clear All"]
-
-let t_row = tr [
-	td [pcdata "Start"];
-	td [pcdata "End"];
-	td [pcdata "Text"]]
-let subtitle_table = tablex [tbody [t_row]]
-
-let textarea = raw_textarea ~a:[a_cols 60] ~name:"subline" ()
-
-let start_time_ph = string_input ~input_type:`Text ~value:"0.00" ()
-let end_time_ph = string_input ~input_type:`Text ~value:"0.00" ()
-
-let video_player =
-	video
-	~srcs:(make_uri (Eliom_service.static_dir ())
-		["oceans-clip.webm"],[])
-	~a:[a_controls (`Controls); a_id "myvideo"]
-	[pcdata "your browser does not support video element"]
-
-let video_controller = div [
-	 label [pcdata "Playback"];
-	 button_play;
-	 button_pause;
-	 button_step_forward;
-	 button_step_backward;
-	 br ();
-	 label [pcdata "Frame size"];
-	 button_big;
-	 button_medium;
-	 button_small;
-	 br ();
-	 label [pcdata "Overlay graphics"];
-	 button_toggle_graph;
-	]
-
-let subtitle_editor = div [
-	start_time_ph;
-	br ();
-	end_time_ph;
-	br ();
-	textarea;
-	br ();
-	button_add;
-	subtitle_table;
-	button_save;
-	button_clear;
-	]
-
 {client{
+(* hack function to convert video into DOM element *)
 let of_video (e: 'a Html5_types.video elt) : videoElement Js.t =
 	Js.Unsafe.coerce (To_dom.of_element e)
 
@@ -104,12 +46,44 @@ let init_client _ =
 	(* make a reference of it - changed to variable *)
 	let pop_ref = ref pop in
 	let end_of_sub = ref (Js.string "0.00") in
+	(* google closure slider constructor *)
+	let build_time_slider elm duration =
+		let slider = jsnew Goog.Ui.slider(Js.null) in
+		let duration_flt = float_of_string (Js.to_string duration) in
+		slider##setMinimum(0.);
+		slider##setMaximum(duration_flt);
+		slider##setValue(0.0);
+		slider##setMoveToPointEnabled(Js._true);
+		slider##setStep(Js.some 0.1);
+		slider##renderBefore(elm);
+		slider
+	in
 
-	(* initialization values *)
-	table_elm##border <- Js.string "1";
+	(* initialization *)
 	start_ph_elm##value <- Js.string "0.00";
 	end_ph_elm##value <- Js.string "0.00";
 	textbox##value <- Js.string "";
+	let duration = (!pop_ref)##duration() in
+	let start_slider = build_time_slider start_ph_elm duration in
+	let end_slider = build_time_slider end_ph_elm duration in
+
+	(* common functions *)
+	let js_string_of_js_float js_float =
+		Js.string (string_of_float (Js.to_float js_float))
+	in
+
+	let fix_float_string_precision js_string precision =
+		let in_flt = float_of_string (Js.to_string js_string) in
+		let in_num = Js.number_of_float in_flt in
+		let out_flt = in_num##toFixed(precision) in
+		out_flt
+	in
+
+	let comp_float_string_lessequal str1 str2 =
+		let num1 = float_of_string(Js.to_string str1) in
+		let num2 = float_of_string(Js.to_string str2) in
+		num1 <= num2
+	in
 
 	(*video controller functions*)
 	let play_video _ =
@@ -121,26 +95,6 @@ let init_client _ =
 	in
 
 	(* subtitle edition functions *)
-
-	let fix_float_string_precision js_string precision =
-		let in_flt = float_of_string (Js.to_string js_string) in
-		let in_num = Js.number_of_float in_flt in
-		let out_flt = in_num##toFixed(precision) in
-		out_flt
-		in
-
-	let comp_float_string_less str1 str2 =
-		let num1 = float_of_string(Js.to_string str1) in
-		let num2 = float_of_string(Js.to_string str2) in
-		num1 < num2
-		in
-
-	let comp_float_string_lessequal str1 str2 =
-		let num1 = float_of_string(Js.to_string str1) in
-		let num2 = float_of_string(Js.to_string str2) in
-		num1 <= num2
-		in
-
 	let is_time_valid start_time end_time prev_end next_start =
 		try
 			let start_time_flt = float_of_string (Js.to_string start_time) in
@@ -170,6 +124,7 @@ let init_client _ =
 				(Js.string "End time must be greater than start time");
 				false
 			end
+			(* prevent users from editing subtitle in another screen *)
 			else if start_time_flt > curr_time_flt ||
 				end_time_flt < curr_time_flt then
 			begin
@@ -202,18 +157,24 @@ let init_client _ =
 		let row_count = table_elm##rows##length in
 		let start_time = start_ph_elm##value in
 		let end_time = end_ph_elm##value in
-		(*first subtitle *)
+		(* first subtitle *)
 		if row_count == 1 then
 		begin
-			let new_row = table_elm##insertRow(row_count) in
-			let start_cell = new_row##insertCell(0) in
-			let end_cell = new_row##insertCell(1) in
-			let text_cell = new_row##insertCell(2) in
-			end_of_sub := end_ph_elm##value;
-			start_cell##innerHTML <- start_ph_elm##value;
-			end_cell##innerHTML <- end_ph_elm##value;
-			text_cell##innerHTML <- textbox##value;
-			start_ph_elm##value <- end_ph_elm##value;
+			let prev_end = Js.string "0.00" in
+			let next_start = (!pop_ref)##duration() in
+			if is_time_valid start_time end_time prev_end next_start
+			then begin
+				let new_row = table_elm##insertRow(row_count) in
+				let start_cell = new_row##insertCell(0) in
+				let end_cell = new_row##insertCell(1) in
+				let text_cell = new_row##insertCell(2) in
+				end_of_sub := end_ph_elm##value;
+				start_cell##innerHTML <- start_ph_elm##value;
+				end_cell##innerHTML <- end_ph_elm##value;
+				text_cell##innerHTML <- textbox##value;
+				start_ph_elm##value <- end_ph_elm##value;
+			end
+			else ()
 		end
 		(* it is a new subtitle not the first one *)
 		else if row_no == row_count then
@@ -324,6 +285,7 @@ let init_client _ =
 					else ()
 				end
 			end
+			(* try the next row *)
 			else
 				add_subtitle_row (row_no + 1)
 		end
@@ -356,12 +318,6 @@ let init_client _ =
 		let start_time = start_cell##innerHTML in
 		let end_time = end_cell##innerHTML in
 		let text = text_cell##innerHTML in
-		(* for debug purpose
-		Firebug.console##log_2(Js.string "[row]:", Js.string (string_of_int row_no));
-		Firebug.console##log_2(Js.string "start:", start_time);
-		Firebug.console##log_2(Js.string "end:", end_time);
-		Firebug.console##log_2(Js.string "text:", text);
-		*)
 		insert_subtitle start_time end_time text;
 		build_subtitles table_elm (row_no + 1)
 		in
@@ -402,8 +358,8 @@ let init_client _ =
 		]);
 
 	(* update placeholders: start_time, end_time & textbox *)
-	(* TODO get rid of using var end_of_sub *)
-	let rec update_phs table_elm row_no curr_time =
+	(* according to currentTime of video *)
+	let rec update_phs_by_time row_no curr_time =
 		if comp_float_string_lessequal !end_of_sub curr_time then
 		begin
 			start_ph_elm##value <- (!end_of_sub);
@@ -454,25 +410,41 @@ let init_client _ =
 			*)
 		end
 		else
-			update_phs table_elm (row_no + 1) curr_time
+			update_phs_by_time (row_no + 1) curr_time
 		in
 
 	(* continuously update the time and subtitle *)
-	let rec update_end_ph old_time n =
+	(* ss = start_slider; es = end_slider *)
+	let rec update_phs old_time old_ss_val n =
 		let origin_time = (!pop_ref)##currentTime_get() in
 		let curr_time = fix_float_string_precision origin_time 2 in
+		let ss_val = start_slider##getValue() in 
+		let is_playing = not (Js.to_bool (!pop_ref)##paused()) in
 		let n =
-			if curr_time <> old_time then begin
-				begin try
-					update_phs table_elm 1 curr_time;
-				with _ -> () end;
+			if is_playing then
+			begin
+				update_phs_by_time 1 curr_time;
 				20
-			end else
+			end
+			else if old_ss_val <> ss_val then
+			begin
+				let ss_val_string =
+					js_string_of_js_float start_slider##getValue() in
+				let rounded_ss_val_string = 
+					fix_float_string_precision ss_val_string 2 in
+				(!pop_ref)##currentTime_set(rounded_ss_val_string);
+				start_ph_elm##value <- rounded_ss_val_string;
+				20
+			end
+			else
+			begin
+				update_phs_by_time 1 curr_time;
 				max 0 (n - 1)
+			end
 		in
 		Lwt_js.sleep (if n = 0 then 0.5 else 0.25) >>=
-		fun () -> update_end_ph curr_time n in
-	ignore (update_end_ph (Js.string "0.00") 0)
+		fun () -> update_phs curr_time ss_val n in
+	ignore (update_phs (Js.string "0.00") (Js.float 0.) 0)
 }}
 
 let () =
@@ -483,11 +455,17 @@ let () =
       Lwt.return
         (Eliom_tools.F.html
            ~title:"Demo | Eliom multimedia"
-           ~css:[["css";"subtitle.css"]]
-           ~js:[["js";"popcorn-complete.min.js"]]
+           ~css:[
+		   ["css";"subtitle.css"];
+		   ["css";"bootstrap.min.css"];
+		   ["css";"common.css"];
+		   ["css";"slider.css"];
+		   ]
+           ~js:[["js";"popcorn-complete.min.js"]; ["subtitle_oclosure.js"]]
            Html5.F.(body [
+		   div ~a:[Bootstrap.container] [
              h2 [pcdata "Eliom multimedia demo"];
 			 video_controller;
 			 video_player;
 			 subtitle_editor;
-           ])))
+			]])))
