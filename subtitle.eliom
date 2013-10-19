@@ -24,8 +24,9 @@ let of_video (e: 'a Html5_types.video elt) : videoElement Js.t =
 	Js.Unsafe.coerce (To_dom.of_element e)
 
 let init_client _ =
-	(* DOM elements *)
+	(* DOM elements including constructors *)
 	let video_elm = of_video %video_player in
+	let canvas_elm = To_dom.of_canvas %canvas_graphics in
 	let table_elm = To_dom.of_table %subtitle_table in
 	let start_ph_elm = To_dom.of_input %start_time_ph in
 	let end_ph_elm = To_dom.of_input %end_time_ph in
@@ -46,6 +47,27 @@ let init_client _ =
 	(* make a reference of it - changed to variable *)
 	let pop_ref = ref pop in
 	let end_of_sub = ref (Js.string "0.00") in
+	(* canvas constructor *)
+	let init_canvas () =
+		let x = ref 10. in
+		let y = ref 60. in
+		(* default hidden *)
+		canvas_elm##style##display <- Js.string "none";
+		canvas_elm##style##position <- Js.string "absolute";
+		canvas_elm##style##top <- Js.string "0px";
+		canvas_elm##style##left <- Js.string "0px";
+		let ctx = canvas_elm##getContext(Dom_html._2d_) in
+		let redraw () =
+		    ctx##clearRect (!x, !y, 20., 20.);
+		    x := if !x > 400. then 0. else !x +. 2.;
+		    y := if !y > 200. then 0. else !y +. 1.;
+		    ctx##fillStyle <- Js.string "#ffaa33";
+		    ctx##fillRect (!x, !y, 20., 20.)
+		in
+		let _ = Dom_html.window##setInterval(Js.wrap_callback redraw, 2.5) in
+		()
+	in
+
 	(* google closure slider constructor *)
 	let build_time_slider elm duration =
 		let slider = jsnew Goog.Ui.slider(Js.null) in
@@ -64,6 +86,7 @@ let init_client _ =
 	start_ph_elm##value <- Js.string "0.00";
 	end_ph_elm##value <- Js.string "0.00";
 	textbox##value <- Js.string "";
+	init_canvas ();
 	let duration = (!pop_ref)##duration() in
 	let start_slider = build_time_slider start_ph_elm duration in
 	let end_slider = build_time_slider end_ph_elm duration in
@@ -71,10 +94,6 @@ let init_client _ =
 	(* common functions *)
 	let js_string_of_js_float js_float =
 		Js.string (string_of_float (Js.to_float js_float))
-	in
-
-	let js_float_of_js_string js_string =
-		Js.float (float_of_string (Js.to_string js_string))
 	in
 
 	let fix_float_string_precision js_string precision =
@@ -92,11 +111,26 @@ let init_client _ =
 
 	(*video controller functions*)
 	let play_video _ =
-		(!pop_ref)##play()
+		video_elm##play()
 	in
 
 	let pause_video _ =
-		(!pop_ref)##pause()
+		video_elm##pause()
+	in
+
+	let set_video_width w =
+		video_elm##width <- w
+	in
+
+	let step_video s =
+		let new_time = (Js.to_float video_elm##currentTime) +. s in
+		video_elm##currentTime <- (Js.float new_time)
+	in
+
+	let switch_visibility elt =
+		if (elt##style##display <> Js.string "none")
+		then elt##style##display <- Js.string "none"
+		else elt##style##display <- Js.string ""
 	in
 
 	(* subtitle edition functions *)
@@ -354,12 +388,37 @@ let init_client _ =
 					(fun _ _ -> play_video (); Lwt.return ());
 					clicks button_pause
 					(fun _ _ -> pause_video (); Lwt.return ());
+					clicks button_big
+					(fun _ _ -> set_video_width 800; Lwt.return ());
+					clicks button_medium
+					(fun _ _ -> set_video_width 640; Lwt.return ());
+					clicks button_small
+					(fun _ _ -> set_video_width 480; Lwt.return ());
+					clicks button_step_forward
+					(fun _ _ -> step_video 5.0; Lwt.return ());
+					clicks button_step_backward
+					(fun _ _ -> step_video (-5.0); Lwt.return ());
+					clicks button_toggle_graph
+					(fun _ _ -> switch_visibility canvas_elm; Lwt.return ());
 					clicks button_add
 					(fun _ _ -> add_subtitle_row 1; Lwt.return ());
 					clicks button_save
 					(fun _ _ -> save_subtitles (); Lwt.return ());
 					clicks button_clear
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
+			    	keypresses Dom_html.document
+					(fun ev _ ->
+				    	let key = (Js.Optdef.get (ev##charCode) (fun() -> 0)) in
+				    	let is_paused = Js.to_bool video_elm##paused in
+				    	if key = 106 then
+				    		step_video (-5.0)
+				    	else if key = 108 then
+				    		step_video 5.0
+				    	else if key = 107 && is_paused then
+				    		play_video ()
+				    	else if key = 107 && not is_paused then
+				    		pause_video ();
+				    	Lwt.return());
 		]);
 
 
@@ -487,6 +546,6 @@ let () =
 		   div ~a:[Bootstrap.container] [
              h2 [pcdata "Eliom multimedia demo"];
 			 video_controller;
-			 video_player;
+			 video_wrapper;
 			 subtitle_editor;
 			]])))

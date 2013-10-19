@@ -16,6 +16,10 @@ let button_add =  button ~button_type:`Button [pcdata "Insert a Subtitle"]
 let button_save =  button ~button_type:`Button [pcdata "Save"]
 let button_clear =  button ~button_type:`Button [pcdata "Clear All"]
 
+let canvas_graphics =
+	canvas ~a:[a_width 400; a_height 200]
+		[pcdata "your browser does not support canvas"]
+
 let t_row = tr [
 	td [pcdata "Start"];
 	td [pcdata "End"];
@@ -61,6 +65,11 @@ let video_controller = div [
 	 div ~a:[Bootstrap.span 9] [button_toggle_graph];
 	];
 	]
+
+let video_wrapper =
+	div
+	~a:[a_style "position:relative"]
+	[canvas_graphics; video_player]
 
 let subtitle_editor = div [
 	start_time_ph;
