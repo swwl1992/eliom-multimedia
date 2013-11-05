@@ -27,6 +27,7 @@ let init_client _ =
 	(* DOM elements including constructors *)
 	let video_elm = of_video %video_player in
 	let canvas_elm = To_dom.of_canvas %canvas_graphics in
+	let graphics_ctrl_elm = To_dom.of_div %graphics_controller in
 	let table_elm = To_dom.of_table %subtitle_table in
 	let start_ph_elm = To_dom.of_input %start_time_ph in
 	let end_ph_elm = To_dom.of_input %end_time_ph in
@@ -47,28 +48,23 @@ let init_client _ =
 	(* make a reference of it - changed to variable *)
 	let pop_ref = ref pop in
 	let end_of_sub = ref (Js.string "0.00") in
-	(* canvas constructor *)
-	let init_canvas () =
-		let x = ref 10. in
-		let y = ref 60. in
-		(* default hidden *)
-		canvas_elm##style##display <- Js.string "none";
-		canvas_elm##style##position <- Js.string "absolute";
-		canvas_elm##style##top <- Js.string "0px";
-		canvas_elm##style##left <- Js.string "0px";
-		let ctx = canvas_elm##getContext(Dom_html._2d_) in
-		let redraw () =
-		    ctx##clearRect (!x, !y, 20., 20.);
-		    x := if !x > 400. then 0. else !x +. 2.;
-		    y := if !y > 200. then 0. else !y +. 1.;
-		    ctx##fillStyle <- Js.string "#ffaa33";
-		    ctx##fillRect (!x, !y, 20., 20.)
-		in
-		let _ = Dom_html.window##setInterval(Js.wrap_callback redraw, 2.5) in
-		()
+
+	(* graphics control slider constructor *)
+	let build_graphics_slider parent min max text =
+		let slider = jsnew Goog.Ui.slider(Js.null) in
+		slider##setMinimum(min);
+		slider##setMaximum(max);
+		slider##setValue(0.0);
+		slider##setMoveToPointEnabled(Js._true);
+		let doc = Dom_html.document in
+		let label = Dom_html.createLabel doc in
+		label##innerHTML <- Js.string text;
+		Dom.appendChild parent label;
+		slider##render(Js.some parent);
+		slider
 	in
 
-	(* google closure slider constructor *)
+	(* starting and ending time slider constructor *)
 	let build_time_slider elm duration =
 		let slider = jsnew Goog.Ui.slider(Js.null) in
 		let duration_flt = float_of_string (Js.to_string duration) in
@@ -86,10 +82,44 @@ let init_client _ =
 	start_ph_elm##value <- Js.string "0.00";
 	end_ph_elm##value <- Js.string "0.00";
 	textbox##value <- Js.string "";
-	init_canvas ();
 	let duration = (!pop_ref)##duration() in
 	let start_slider = build_time_slider start_ph_elm duration in
 	let end_slider = build_time_slider end_ph_elm duration in
+	let graphics_size_slider =
+		build_graphics_slider graphics_ctrl_elm 10. 20. "Ball size" in
+	let pSmall = jsnew Goog.Ui.hsvPalette
+		(Js.null, Js.null, Js.some (Js.string "goog-hsv-palette-sm")) in
+	pSmall##render(Js.some graphics_ctrl_elm);
+
+	(* canvas constructor and initialization *)
+	let init_canvas () =
+		let x = ref 100. in
+		let y = ref 50. in
+		let dx = ref 5. in
+		let dy = ref 5. in
+		(* default hidden *)
+		canvas_elm##style##display <- Js.string "none";
+		canvas_elm##style##position <- Js.string "absolute";
+		canvas_elm##style##top <- Js.string "380px";
+		canvas_elm##style##left <- Js.string "175px";
+		let ctx = canvas_elm##getContext(Dom_html._2d_) in
+		let redraw () =
+		    ctx##clearRect (0., 0., 200., 100.);
+			let size = Js.to_float graphics_size_slider##getValue() in
+		    if !x < (0. +. size) || !x > (200. -. size) then dx := -.(!dx);
+		    if !y < (0. +. size) || !y > (100. -. size) then dy := -.(!dy);
+			x := !x +. !dx;
+			y := !y +. !dy;
+			ctx##beginPath();
+		    ctx##fillStyle <- pSmall##getColor();
+		    ctx##arc (!x, !y, size, 0., 3.142 *. 2., Js.bool true);
+			ctx##closePath();
+			ctx##fill();
+		in
+		let _ = Dom_html.window##setInterval(Js.wrap_callback redraw, 10.) in
+		()
+	in
+	init_canvas ();
 
 	(* common functions *)
 	let js_string_of_js_float js_float =
@@ -406,7 +436,7 @@ let init_client _ =
 					(fun _ _ -> save_subtitles (); Lwt.return ());
 					clicks button_clear
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
-			    	keypresses Dom_html.document
+			    	keypresses video_elm
 					(fun ev _ ->
 				    	let key = (Js.Optdef.get (ev##charCode) (fun() -> 0)) in
 				    	let is_paused = Js.to_bool video_elm##paused in
@@ -540,6 +570,7 @@ let () =
 		   ["css";"bootstrap.min.css"];
 		   ["css";"common.css"];
 		   ["css";"slider.css"];
+		   ["css";"hsvpalette.css"];
 		   ]
            ~js:[["js";"popcorn-complete.min.js"]; ["subtitle_oclosure.js"]]
            Html5.F.(body [

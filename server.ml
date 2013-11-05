@@ -17,13 +17,19 @@ let button_save =  button ~button_type:`Button [pcdata "Save"]
 let button_clear =  button ~button_type:`Button [pcdata "Clear All"]
 
 let canvas_graphics =
-	canvas ~a:[a_width 400; a_height 200]
+	canvas ~a:[a_width 200; a_height 100]
 		[pcdata "your browser does not support canvas"]
+
+let graphics_controller =
+	div ~a:[Bootstrap.span 9] [
+	 	button_toggle_graph
+	]
 
 let t_row = tr [
 	td [pcdata "Start"];
 	td [pcdata "End"];
 	td [pcdata "Text"]]
+
 let subtitle_table =
 	tablex ~a:[Bootstrap.table; Bootstrap.table_bordered] [tbody [t_row]]
 
@@ -61,14 +67,13 @@ let video_controller = div [
 	];
 	div ~a:[Bootstrap.row_fluid]
 	[
-	 div ~a:[Bootstrap.span 3] [pcdata "Overlay graphics"];
-	 div ~a:[Bootstrap.span 9] [button_toggle_graph];
+		div ~a:[Bootstrap.span 3] [pcdata "Overlay graphics"];
+		graphics_controller;
 	];
 	]
 
 let video_wrapper =
 	div
-	~a:[a_style "position:relative"]
 	[canvas_graphics; video_player]
 
 let subtitle_editor = div [
