@@ -574,7 +574,7 @@ let () =
 		   ]
            ~js:[["js";"popcorn-complete.min.js"]; ["subtitle_oclosure.js"]]
            Html5.F.(body [
-		   div ~a:[Bootstrap.container] [
+		   div ~a:[Bootstrap.hero_unit] [
              h2 [pcdata "Eliom multimedia demo"];
 			 video_controller;
 			 video_wrapper;
