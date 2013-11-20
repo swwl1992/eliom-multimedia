@@ -100,7 +100,7 @@ let init_client _ =
 		(* default hidden *)
 		canvas_elm##style##display <- Js.string "none";
 		canvas_elm##style##position <- Js.string "absolute";
-		canvas_elm##style##top <- Js.string "380px";
+		canvas_elm##style##top <- Js.string "480px";
 		canvas_elm##style##left <- Js.string "175px";
 		let ctx = canvas_elm##getContext(Dom_html._2d_) in
 		let redraw () =
@@ -131,6 +131,12 @@ let init_client _ =
 		let in_num = Js.number_of_float in_flt in
 		let out_flt = in_num##toFixed(precision) in
 		out_flt
+	in
+
+	let comp_float_string_equal str1 str2 =
+		let num1 = float_of_string(Js.to_string str1) in
+		let num2 = float_of_string(Js.to_string str2) in
+		num1 = num2
 	in
 
 	let comp_float_string_lessequal str1 str2 =
@@ -175,6 +181,10 @@ let init_client _ =
 			let curr_time_flt = float_of_string
 				(Js.to_string ((!pop_ref)##currentTime_get())) in
 			(* all the error cases *)
+			Firebug.console##log_2(Js.string "[start time]", start_time);
+			Firebug.console##log_2(Js.string "[end time]", end_time);
+			Firebug.console##log_2(Js.string "[prev end]", prev_end);
+			Firebug.console##log_2(Js.string "[next start]", next_start);
 			if start_time_flt < 0.0 || start_time_flt > duration_flt then
 			begin
 				Dom_html.window##alert
@@ -226,9 +236,10 @@ let init_client _ =
 		let row_count = table_elm##rows##length in
 		let start_time = start_ph_elm##value in
 		let end_time = end_ph_elm##value in
-		(* first subtitle *)
+		(* first new subtitle *)
 		if row_count == 1 then
 		begin
+			Firebug.console##log(Js.string "[first new subtitle]");
 			let prev_end = Js.string "0.00" in
 			let next_start = (!pop_ref)##duration() in
 			if is_time_valid start_time end_time prev_end next_start
@@ -242,12 +253,15 @@ let init_client _ =
 				end_cell##innerHTML <- end_ph_elm##value;
 				text_cell##innerHTML <- textbox##value;
 				start_ph_elm##value <- end_ph_elm##value;
+				start_slider##setValue
+					(float_of_string (Js.to_string end_ph_elm##value));
 			end
 			else ()
 		end
 		(* it is a new subtitle not the first one *)
 		else if row_no == row_count then
 		begin
+			Firebug.console##log(Js.string "[new subtitle]");
 			let prev_row = Js.Opt.get(table_elm##rows##item(row_no - 1))
 				(fun _ -> assert false) in
 			let prev_end_cell = Js.Opt.get(prev_row##cells##item(1))
@@ -265,6 +279,8 @@ let init_client _ =
 				end_cell##innerHTML <- end_ph_elm##value;
 				text_cell##innerHTML <- textbox##value;
 				start_ph_elm##value <- end_ph_elm##value;
+				start_slider##setValue
+					(float_of_string (Js.to_string end_ph_elm##value));
 			end
 			else ()
 		end
@@ -279,17 +295,16 @@ let init_client _ =
 				(fun _ -> assert false) in
 			let text_cell = Js.Opt.get(row##cells##item(2))
 				(fun _ -> assert false) in
-			let curr_time = (!pop_ref)##currentTime_get() in
-
 			(* if curr time lies within the range between start & end time *)
-			if comp_float_string_lessequal start_cell##innerHTML curr_time &&
-				comp_float_string_lessequal curr_time end_cell##innerHTML
+			if comp_float_string_equal start_cell##innerHTML start_ph_elm##value ||
+				comp_float_string_equal end_ph_elm##value end_cell##innerHTML
 			then begin
 				if row_no == 1 then (* if editing the first row of table *)
 				begin
 					let prev_end = Js.string "0.00" in
 					if row_count == 2 then (* only one row in table *)
 					begin
+						Firebug.console##log(Js.string "[first only row]");
 						let next_start = (!pop_ref)##duration() in
 						if is_time_valid start_time end_time prev_end next_start
 						then begin
@@ -302,6 +317,7 @@ let init_client _ =
 					end (* if row_count == 2 *)
 					else (* more than 2 rows in table *)
 					begin
+						Firebug.console##log(Js.string "[first row]");
 						let next_row = Js.Opt.get(table_elm##rows##item(row_no + 1))
 							(fun _ -> assert false) in
 						let next_start_cell = Js.Opt.get(next_row##cells##item(0))
@@ -316,8 +332,10 @@ let init_client _ =
 						else ()
 					end
 				end (* if row_no == 1 *)
-				else if row_no == row_count - 1 then (* last row of table *)
+				(* last row of table *)
+				else if row_no == row_count - 1 && row_no <> 1 then
 				begin
+					Firebug.console##log(Js.string "[last row]");
 					let prev_row = Js.Opt.get(table_elm##rows##item(row_no - 1))
 						(fun _ -> assert false) in
 					let prev_end_cell = Js.Opt.get(prev_row##cells##item(1))
@@ -335,6 +353,7 @@ let init_client _ =
 				end (* if row_no == row_count - 1 *)
 				else (* rows neither the first nor the last *)
 				begin
+					Firebug.console##log(Js.string "[row in between]");
 					let prev_row = Js.Opt.get(table_elm##rows##item(row_no - 1))
 						(fun _ -> assert false) in
 					let prev_end_cell = Js.Opt.get(prev_row##cells##item(1))
@@ -575,7 +594,8 @@ let () =
            ~js:[["js";"popcorn-complete.min.js"]; ["subtitle_oclosure.js"]]
            Html5.F.(body [
 		   div ~a:[Bootstrap.hero_unit] [
-             h2 [pcdata "Eliom multimedia demo"];
+             h2 ~a:[Bootstrap.page_header]
+			 	[pcdata "Eliom multimedia demo"];
 			 video_controller;
 			 video_wrapper;
 			 subtitle_editor;
