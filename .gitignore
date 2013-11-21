@@ -1,2 +1,8 @@
 #ignore all backup files
 *.backup
+
+.depend
+_client/
+_deps/
+_server/
+local/
