@@ -31,6 +31,9 @@ let init_client _ =
 	let table_elm = To_dom.of_table %subtitle_table in
 	let start_ph_elm = To_dom.of_input %start_time_ph in
 	let end_ph_elm = To_dom.of_input %end_time_ph in
+	let subtitle_text_elm = To_dom.of_div %subtitle_text in
+	let x_coord_elm = To_dom.of_input %x_coord_ph in
+	let y_coord_elm = To_dom.of_input %y_coord_ph in
 	let textbox = To_dom.of_textarea %textarea in
 	let button_add = To_dom.of_button %button_add in
 	let button_save = To_dom.of_button %button_save in
@@ -82,6 +85,10 @@ let init_client _ =
 	start_ph_elm##value <- Js.string "0.00";
 	end_ph_elm##value <- Js.string "0.00";
 	textbox##value <- Js.string "";
+	subtitle_text_elm##style##width <-
+		Js.string((string_of_int 640) ^ "px");
+	subtitle_text_elm##style##top <-
+		Js.string((string_of_int 240) ^ "px");
 	let duration = (!pop_ref)##duration() in
 	let start_slider = build_time_slider start_ph_elm duration in
 	let end_slider = build_time_slider end_ph_elm duration in
@@ -228,7 +235,18 @@ let init_client _ =
 		(* exception thrown *)
 		with _ ->
 			Dom_html.window##alert
-			(Js.string "Invalid input format");
+			(Js.string "Invalid time format");
+			false
+	in
+
+	let is_coord_valid x_coord y_coord =
+		try
+			let x_coord_int = int_of_string (Js.to_string x_coord) in
+			let y_coord_int = int_of_string (Js.to_string y_coord) in
+			true
+		with _ ->
+			Dom_html.window##alert
+				(Js.string "Invalid coordinates");
 			false
 	in
 
@@ -236,21 +254,28 @@ let init_client _ =
 		let row_count = table_elm##rows##length in
 		let start_time = start_ph_elm##value in
 		let end_time = end_ph_elm##value in
+		let x_coord = x_coord_elm##value in
+		let y_coord = y_coord_elm##value in
 		(* first new subtitle *)
 		if row_count == 1 then
 		begin
 			Firebug.console##log(Js.string "[first new subtitle]");
 			let prev_end = Js.string "0.00" in
 			let next_start = (!pop_ref)##duration() in
-			if is_time_valid start_time end_time prev_end next_start
+			if is_time_valid start_time end_time prev_end next_start &&
+				is_coord_valid x_coord y_coord
 			then begin
 				let new_row = table_elm##insertRow(row_count) in
 				let start_cell = new_row##insertCell(0) in
 				let end_cell = new_row##insertCell(1) in
 				let text_cell = new_row##insertCell(2) in
+				let x_coord_cell = new_row##insertCell(3) in
+				let y_coord_cell = new_row##insertCell(4) in
 				end_of_sub := end_ph_elm##value;
 				start_cell##innerHTML <- start_ph_elm##value;
 				end_cell##innerHTML <- end_ph_elm##value;
+				x_coord_cell##innerHTML <- x_coord;
+				y_coord_cell##innerHTML <- y_coord;
 				text_cell##innerHTML <- textbox##value;
 				start_ph_elm##value <- end_ph_elm##value;
 				start_slider##setValue
@@ -274,10 +299,14 @@ let init_client _ =
 				let start_cell = new_row##insertCell(0) in
 				let end_cell = new_row##insertCell(1) in
 				let text_cell = new_row##insertCell(2) in
+				let x_coord_cell = new_row##insertCell(3) in
+				let y_coord_cell = new_row##insertCell(4) in
 				end_of_sub := end_ph_elm##value;
 				start_cell##innerHTML <- start_ph_elm##value;
 				end_cell##innerHTML <- end_ph_elm##value;
 				text_cell##innerHTML <- textbox##value;
+				x_coord_cell##innerHTML <- x_coord;
+				y_coord_cell##innerHTML <- y_coord;
 				start_ph_elm##value <- end_ph_elm##value;
 				start_slider##setValue
 					(float_of_string (Js.to_string end_ph_elm##value));
@@ -294,6 +323,10 @@ let init_client _ =
 			let end_cell = Js.Opt.get(row##cells##item(1))
 				(fun _ -> assert false) in
 			let text_cell = Js.Opt.get(row##cells##item(2))
+				(fun _ -> assert false) in
+			let x_coord_cell = Js.Opt.get(row##cells##item(3))
+				(fun _ -> assert false) in
+			let y_coord_cell = Js.Opt.get(row##cells##item(4))
 				(fun _ -> assert false) in
 			(* if curr time lies within the range between start & end time *)
 			if comp_float_string_equal start_cell##innerHTML start_ph_elm##value ||
@@ -312,6 +345,8 @@ let init_client _ =
 							start_cell##innerHTML <- start_time;
 							end_cell##innerHTML <- end_time;
 							text_cell##innerHTML <- textbox##value;
+							x_coord_cell##innerHTML <- x_coord;
+							y_coord_cell##innerHTML <- y_coord;
 						end
 						else ()
 					end (* if row_count == 2 *)
@@ -328,6 +363,8 @@ let init_client _ =
 							start_cell##innerHTML <- start_time;
 							end_cell##innerHTML <- end_time;
 							text_cell##innerHTML <- textbox##value;
+							x_coord_cell##innerHTML <- x_coord;
+							y_coord_cell##innerHTML <- y_coord;
 						end
 						else ()
 					end
@@ -348,6 +385,8 @@ let init_client _ =
 						start_cell##innerHTML <- start_time;
 						end_cell##innerHTML <- end_time;
 						text_cell##innerHTML <- textbox##value;
+						x_coord_cell##innerHTML <- x_coord;
+						y_coord_cell##innerHTML <- y_coord;
 					end
 					else ()
 				end (* if row_no == row_count - 1 *)
@@ -369,6 +408,8 @@ let init_client _ =
 						start_cell##innerHTML <- start_time;
 						end_cell##innerHTML <- end_time;
 						text_cell##innerHTML <- textbox##value;
+						x_coord_cell##innerHTML <- x_coord;
+						y_coord_cell##innerHTML <- y_coord;
 					end
 					else ()
 				end
@@ -451,8 +492,6 @@ let init_client _ =
 					(fun _ _ -> switch_visibility canvas_elm; Lwt.return ());
 					clicks button_add
 					(fun _ _ -> add_subtitle_row 1; Lwt.return ());
-					clicks button_save
-					(fun _ _ -> save_subtitles (); Lwt.return ());
 					clicks button_clear
 					(fun _ _ -> clear_all_subtitles (); Lwt.return ());
 			    	keypresses video_elm
@@ -481,11 +520,11 @@ let init_client _ =
 			start_slider##setValue(float_of_string (Js.to_string !end_of_sub));
 			end_slider##setValue(float_of_string (Js.to_string curr_time));
 			textbox##value <- Js.string "";
+			subtitle_text_elm##innerHTML <- Js.string " ";
 			(*
 			Firebug.console##log_2(Js.string "curr:", curr_time);
 			Firebug.console##log_2(Js.string "end of sub:", !end_of_sub);
 			*)
-			()
 		end
 		else
 		let rows_length = table_elm##rows##length in
@@ -494,7 +533,7 @@ let init_client _ =
 			end_ph_elm##value <- curr_time;
 			end_slider##setValue(float_of_string (Js.to_string curr_time));
 			textbox##value <- Js.string "";
-			()
+			subtitle_text_elm##innerHTML <- Js.string " ";
 		end
 		else
 		let row = Js.Opt.get(table_elm##rows##item(row_no))
@@ -505,9 +544,15 @@ let init_client _ =
 			(fun _ -> assert false) in
 		let text_cell = Js.Opt.get(row##cells##item(2))
 			(fun _ -> assert false) in
+		let x_coord_cell = Js.Opt.get(row##cells##item(3))
+			(fun _ -> assert false) in
+		let y_coord_cell = Js.Opt.get(row##cells##item(4))
+			(fun _ -> assert false) in
 		let start_time = start_cell##innerHTML in
 		let end_time = end_cell##innerHTML in
 		let text = text_cell##innerHTML in
+		let x_coord = x_coord_cell##innerHTML in
+		let y_coord = y_coord_cell##innerHTML in
 		(* for debug purpose
 		Firebug.console##log_2(Js.string "[row]:", Js.string (string_of_int row_no));
 		Firebug.console##log_2(Js.string "start:", start_time);
@@ -522,6 +567,11 @@ let init_client _ =
 			start_slider##setValue(float_of_string (Js.to_string start_time));
 			end_slider##setValue(float_of_string (Js.to_string end_time));
 			textbox##value <- text;
+			subtitle_text_elm##innerHTML <- text;
+			subtitle_text_elm##style##top <-
+				Js.string ((Js.to_string y_coord) ^ "px");
+			subtitle_text_elm##style##left <-
+				Js.string ((Js.to_string x_coord) ^ "px");
 			(*
 			Firebug.console##log_2(Js.string "start:", start_time);
 			Firebug.console##log_2(Js.string "end:", end_time);

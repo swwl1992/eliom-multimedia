@@ -28,7 +28,10 @@ let graphics_controller =
 let t_row = tr [
 	td [pcdata "Start"];
 	td [pcdata "End"];
-	td [pcdata "Text"]]
+	td [pcdata "Text"];
+	td [pcdata "X coord"];
+	td [pcdata "Y coord"]
+	]
 
 let subtitle_table =
 	tablex ~a:[Bootstrap.table; Bootstrap.table_bordered] [tbody [t_row]]
@@ -37,12 +40,17 @@ let textarea = raw_textarea ~a:[a_cols 60] ~name:"subline" ()
 
 let start_time_ph = string_input ~input_type:`Text ~value:"0.00" ()
 let end_time_ph = string_input ~input_type:`Text ~value:"0.00" ()
+let x_coord_ph = string_input ~input_type:`Text ~value:"0" ()
+let y_coord_ph = string_input ~input_type:`Text ~value:"240" ()
+let subtitle_text = div
+	~a:[a_style "position:relative;font-weight:bold;color:white;text-align:center"]
+	[pcdata "Enjoy the show"]
 
 let video_player =
 	video
 	~srcs:(make_uri (Eliom_service.static_dir ())
 		["oceans-clip.webm"],[])
-	~a:[a_controls (`Controls); a_id "myvideo"]
+	~a:[a_controls (`Controls); a_id "myvideo"; a_style "top:0px"]
 	[pcdata "your browser does not support video element"]
 
 let video_controller = div [
@@ -74,12 +82,15 @@ let video_controller = div [
 
 let video_wrapper =
 	div
-	[canvas_graphics; video_player]
+	[canvas_graphics; subtitle_text; video_player]
 
 let subtitle_editor = div [
 	start_time_ph;
 	br ();
 	end_time_ph;
+	br ();
+	x_coord_ph;
+	y_coord_ph;
 	br ();
 	textarea;
 	br ();
