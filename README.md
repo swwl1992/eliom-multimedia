@@ -5,6 +5,8 @@ It also presents a possible solution to manipulation of multimedia using Eliom f
 
 Dependencies
 ------
+* [Eliom framework](http://ocsigen.org/) release 3.0 or above (installation from package manager)
+* [Oclosure](http://ocsigen.org/oclosure/install) Library (installation from source is preferred)
 
 
 Instructions
@@ -23,6 +25,11 @@ See below for other useful targets for make.
 
 Howto
 ------
+After running the instruction above,
+you will be able to see the default video and the subtitle editor below it.
+
+To view the immediate effect of the editor,
+please enter the text into the textbox and click the save button.
 
 Generated files
 ------
@@ -99,3 +106,7 @@ Here's some help on how to work with this basic destillery project:
  - If you need a findlib package in your project, add it to the
    variables SERVER_PACKAGES and/or CLIENT_PACKAGES. The configuration
    file will be automatically updated.
+
+Remarks
+------
+Thanks to Mr. [Chua Jie Sheng](https://github.com/chuajiesheng) for his guidance and suggestions on this project.
