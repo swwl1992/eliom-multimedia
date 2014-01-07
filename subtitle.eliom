@@ -5,6 +5,7 @@
   open Html5.D
   open Lwt
   open Popcorn (* media library and popcorn.js API *)
+  open Config
 }}
 
 open Server
@@ -36,7 +37,6 @@ let init_client _ =
 	let y_coord_elm = To_dom.of_input %y_coord_ph in
 	let textbox = To_dom.of_textarea %textarea in
 	let button_add = To_dom.of_button %button_add in
-	let button_save = To_dom.of_button %button_save in
 	let button_clear = To_dom.of_button %button_clear in
 	let button_play = To_dom.of_button %button_play in
 	let button_pause = To_dom.of_button %button_pause in
@@ -450,10 +450,6 @@ let init_client _ =
 		insert_subtitle start_time end_time text;
 		build_subtitles table_elm (row_no + 1)
 		in
-
-	let save_subtitles () =
-		refresh_subtitles ();
-		build_subtitles table_elm 1 in
 
 	let clear_rows rows_length =
 		for i=(rows_length-1) downto 1 do
