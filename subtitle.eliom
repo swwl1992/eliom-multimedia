@@ -5,7 +5,6 @@
   open Html5.D
   open Lwt
   open Popcorn (* media library and popcorn.js API *)
-  open Config
 }}
 
 open Server
